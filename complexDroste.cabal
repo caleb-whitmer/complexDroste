@@ -26,7 +26,7 @@ source-repository head
 library
   exposed-modules:
       Complex
-      Lib
+      Droste
   other-modules:
       Paths_complexDroste
   autogen-modules:
