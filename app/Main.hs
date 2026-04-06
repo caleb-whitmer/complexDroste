@@ -11,10 +11,10 @@ import Droste
 
 main :: IO ()
 main = do
-    imRead <- readPng "canvaslog.png"
+    imRead <- readPng "droste.png"
     case imRead of
         Left err -> putStrLn err
         Right imSuc -> do
             let img = convertRGB8 imSuc
-            let imgOut = Droste.exp img (1/16)
-            writePng "canvasexp.png" imgOut
+            let imgOut = Droste.scale img (1/2)
+            writePng "drostescale.png" imgOut

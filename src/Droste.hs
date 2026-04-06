@@ -1,6 +1,7 @@
 module Droste 
   ( Droste.log,
-    Droste.exp
+    Droste.exp,
+    Droste.scale
   ) where
 
 import Codec.Picture
@@ -8,12 +9,24 @@ import Data.Fixed
 
 import Complex
 
--- todo:
---   non-centered Droste
---   implement exp of image function
+scale :: Image PixelRGB8 -> Float -> Image PixelRGB8
+scale img s = generateImage imgNew
+  (floor width)
+  (floor height)
+    where 
+      imgNew x y = pixelAt img
+        (floor x')
+        (floor y')
+          where
+            y' = (1/s) * 
+                 (fromIntegral y)
+            x' = (1/s) * 
+                 (fromIntegral x)
+      height   = s * (fromIntegral (imageHeight img) :: Float)
+      width    = s * (fromIntegral (imageWidth img) :: Float)
 
 log :: Image PixelRGB8 -> Float -> Image PixelRGB8
-log img scale = generateImage imgNew 
+log img s = generateImage imgNew 
   (floor width)
   (floor height)
     where 
@@ -33,10 +46,10 @@ log img scale = generateImage imgNew
                                         -- 
             e  = Prelude.exp 1          -- Euler's number.
                                         -- 
-            p1 = Complex ((s*xn)-s+1)   -- 
+            p1 = Complex ((s1*xn)-s1+1)   -- 
                  (-2 * yn)              -- Intermediate point.
                                         -- 
-            s  = Prelude.log (1 / scale)-- Factor to scale x component of p1.
+            s1  = Prelude.log (1 / s)   -- Factor to scale x component of p1.
                                         -- 
             yn = (fromIntegral y) *     -- 
                  (pi/height)            -- Normalize y between 0 and pi.
@@ -45,12 +58,12 @@ log img scale = generateImage imgNew
                  (1/width)              -- Normalize x between 0 and 1.
                                         -- 
       height   = inHeight * pi          -- Height is max circumference of input.
-      width    = inWidth*(1 - scale)*0.5-- Width is one minus scale all over 2.
+      width    = inWidth*(1 - s)*0.5    -- Width is one minus scale all over 2.
       inHeight = (fromIntegral (imageHeight img) :: Float)
       inWidth  = (fromIntegral (imageWidth img) :: Float)
 
 exp :: Image PixelRGB8 -> Float -> Image PixelRGB8
-exp img scale = generateImage imgNew
+exp img s = generateImage imgNew
   (floor width)
   (floor height)
     where
@@ -64,13 +77,13 @@ exp img scale = generateImage imgNew
                                         -- 
             x' = (real p3) * inWidth    -- Get x component (real & first quad).
 
-            p3 = (d ( (c (l-o) (1/s)) + -- Final point: converts from log space
+            p3 = (d ( (c (l-o) (1/s1))+ -- Final point: converts from log space
                  (Complex 1 (-pi)) )) + -- back to Cartesian
                  (Complex 0 (-pi))      -- 
               where
-                c z s1 = Complex (s1*(real z)) (imaginary z)
+                c z s2 = Complex (s2*(real z)) (imaginary z)
                                         -- Scale x component of some imaginary
-                                        -- number by s1.
+                                        -- number by s2.
                 d z = Complex  (mod' (real z) 1) (mod' (imaginary z) pi)
                                         -- Take modulus of x and y components
                                         -- to keep them within the bounds of the
@@ -81,7 +94,7 @@ exp img scale = generateImage imgNew
             o  = Complex.log            -- 
                  (Complex 0.5 0)        -- Offset constant of x component of p3.
                                         -- 
-            s  = Prelude.log (1 / scale)-- Scale factor for x component of p3.
+            s1  = Prelude.log (1 / s)   -- Scale factor for x component of p3.
                                         -- 
             p2 = (abs p1)*( Complex.exp -- 
                  (Complex 0 (0.5*a)) )  -- Intermediate point.
@@ -98,6 +111,6 @@ exp img scale = generateImage imgNew
                  width                  -- Normalize x.
                                         -- 
       height   = inHeight / pi          -- 
-      width    = (inWidth*2)/(1-scale)  -- 
+      width    = (inWidth*2)/(1-s)      -- 
       inHeight = (fromIntegral (imageHeight img) :: Float)
       inWidth  = (fromIntegral (imageWidth img) :: Float)
