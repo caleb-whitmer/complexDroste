@@ -1,13 +1,35 @@
 module Droste 
   ( Droste.log,
     Droste.exp,
-    Droste.scale
+    Droste.scale,
+    Droste.overlay
   ) where
 
 import Codec.Picture
 import Data.Fixed
 
 import Complex
+
+overlay :: Image PixelRGB8 -> Image PixelRGB8 -> Int -> Int -> Image PixelRGB8
+overlay bImg tImg oX oY = generateImage imgNew
+  (imageWidth bImg)
+  (imageHeight bImg)
+    where
+      imgNew x y = pixelAt cImg
+        x'
+        y'
+          where
+            cImg = if (inTY&&inTX)
+                   then tImg
+                   else bImg
+            y'   = if (inTY&&inTX)
+                   then y - oY
+                   else y
+            x'   = if (inTY&&inTX)
+                   then x - oX
+                   else x
+            inTY = (y >= oY && y < (oY + (imageHeight tImg)))  
+            inTX = (x >= oX && x < (oX + (imageWidth tImg)))
 
 scale :: Image PixelRGB8 -> Float -> Image PixelRGB8
 scale img s = generateImage imgNew
