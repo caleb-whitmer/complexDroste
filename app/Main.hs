@@ -16,6 +16,5 @@ main = do
         Left err -> putStrLn err
         Right imSuc -> do
             let img = convertRGB8 imSuc
-            let imgScale = Droste.scale img (1/2)
-            let imgOut = Droste.overlay img imgScale 100 100
-            writePng "drosteoverlay.png" imgOut
+            let imgOut = Droste.log img (1/5)
+            writePng "drostelog.png" imgOut

@@ -2,7 +2,8 @@ module Droste
   ( Droste.log,
     Droste.exp,
     Droste.scale,
-    Droste.overlay
+    Droste.overlay,
+    Droste.backRecurse
   ) where
 
 import Codec.Picture
@@ -10,27 +11,62 @@ import Data.Fixed
 
 import Complex
 
+-- !
+-- ! @brief      Place the image in the center of an upscaled version of itself.
+-- !             This prevents loss of quality when converting to and from 
+-- !             logarithmic space.
+-- !
+-- ! @return     An upscaled version of the image with a high-quality center.
+-- !
+backRecurse :: Image PixelRGB8 -> Float -> Image PixelRGB8
+backRecurse img s = overlay
+  scaledImg
+  img
+  (floor oX)
+  (floor oY)
+    where
+      scaledImg = scale img (1/s)       -- Scale the outer image to fit around
+                                        -- the original.
+                                        -- 
+      oY = 0.5 * sHeight -              -- 
+           0.5 * height                 -- 
+      oX = 0.5 * sWidth -               -- Get offset to center the original 
+           0.5 * width                  -- image inside the outer image.
+      sHeight = fromIntegral (imageHeight scaledImg) :: Float
+      sWidth  = fromIntegral (imageWidth scaledImg) :: Float
+      height  = fromIntegral (imageHeight img) :: Float
+      width   = fromIntegral (imageWidth img) :: Float
+
+-- !
+-- ! @brief      Overlay on image on top of another at some offset.
+-- !
+-- ! @return     A combination of the two image, with the second overlayed on 
+-- !             top of the first.
+-- !
 overlay :: Image PixelRGB8 -> Image PixelRGB8 -> Int -> Int -> Image PixelRGB8
 overlay bImg tImg oX oY = generateImage imgNew
   (imageWidth bImg)
   (imageHeight bImg)
     where
-      imgNew x y = pixelAt cImg
-        x'
-        y'
-          where
-            cImg = if (inTY&&inTX)
-                   then tImg
-                   else bImg
-            y'   = if (inTY&&inTX)
-                   then y - oY
-                   else y
-            x'   = if (inTY&&inTX)
-                   then x - oX
-                   else x
-            inTY = (y >= oY && y < (oY + (imageHeight tImg)))  
-            inTX = (x >= oX && x < (oX + (imageWidth tImg)))
+      imgNew x y = pixelAt cImg x' y'
+        where
+          cImg = if inTop               --
+                 then tImg              -- 
+                 else bImg              -- 
+          y'   = if inTop               -- 
+                 then y - oY            -- 
+                 else y                 -- 
+          x'   = if inTop               -- Change the image and coordinate
+                 then x - oX            -- system if we are "inside" the  
+                 else x                 -- overlayed image.
+          inTop= (y >= oY && y < (oY + (imageHeight tImg))) &&
+                 (x >= oX && x < (oX + (imageWidth tImg)))
 
+-- !
+-- ! @brief      Scale an image by some factor.
+-- !
+-- ! @return     The scaled image.
+-- !
 scale :: Image PixelRGB8 -> Float -> Image PixelRGB8
 scale img s = generateImage imgNew
   (floor width)
@@ -40,13 +76,16 @@ scale img s = generateImage imgNew
         (floor x')
         (floor y')
           where
-            y' = (1/s) * 
-                 (fromIntegral y)
-            x' = (1/s) * 
-                 (fromIntegral x)
+            y' = (1/s)*(fromIntegral y)
+            x' = (1/s)*(fromIntegral x)
       height   = s * (fromIntegral (imageHeight img) :: Float)
       width    = s * (fromIntegral (imageWidth img) :: Float)
 
+-- !
+-- ! @brief      Take the "logarithm" of an image.
+-- !
+-- ! @return     A new image representing the log-space of the original image.
+-- !
 log :: Image PixelRGB8 -> Float -> Image PixelRGB8
 log img s = generateImage imgNew 
   (floor width)
@@ -84,6 +123,11 @@ log img s = generateImage imgNew
       inHeight = (fromIntegral (imageHeight img) :: Float)
       inWidth  = (fromIntegral (imageWidth img) :: Float)
 
+-- !
+-- ! @brief      Take the exponential function of an image.
+-- !
+-- ! @return     A new image representing the exponential space of the original.
+-- !
 exp :: Image PixelRGB8 -> Float -> Image PixelRGB8
 exp img s = generateImage imgNew
   (floor width)
