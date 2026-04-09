@@ -3,7 +3,8 @@ module Droste
     Droste.exp,
     Droste.scale,
     Droste.overlay,
-    Droste.backRecurse
+    Droste.backRecurse,
+    Droste.escher
   ) where
 
 import Codec.Picture
@@ -124,12 +125,13 @@ log img s = generateImage imgNew
       inWidth  = (fromIntegral (imageWidth img) :: Float)
 
 -- !
--- ! @brief      Take the exponential function of an image.
+-- ! @brief      Take the exponential function of an image. Optionally, apply a 
+-- !             transformation to the log space image. 
 -- !
 -- ! @return     A new image representing the exponential space of the original.
 -- !
-exp :: Image PixelRGB8 -> Float -> Image PixelRGB8
-exp img s = generateImage imgNew
+exp :: Image PixelRGB8 -> Float -> (Maybe ((Complex w w) -> (Complex w w))) -> Image PixelRGB8
+exp img s m = generateImage imgNew
   (floor width)
   (floor height)
     where
@@ -137,38 +139,43 @@ exp img s = generateImage imgNew
         (floor x')
         (floor y')
           where
-            y' = (pi-(abs               -- 
-                 (imaginary p3))) *     -- Get y component scaled and in first
-                 inHeight * (1/pi)      -- quadrant.
+            y' = (imaginary p6)*(1/pi)* -- 
+                 inHeight               -- Un-normalize the Cartesian space 
+            x' = (real p6) * inWidth    -- point.
                                         -- 
-            x' = (real p3) * inWidth    -- Get x component (real & first quad).
-
-            p3 = (d ( (c (l-o) (1/s1))+ -- Final point: converts from log space
-                 (Complex 1 (-pi)) )) + -- back to Cartesian
-                 (Complex 0 (-pi))      -- 
-              where
-                c z s2 = Complex (s2*(real z)) (imaginary z)
-                                        -- Scale x component of some imaginary
-                                        -- number by s2.
-                d z = Complex  (mod' (real z) 1) (mod' (imaginary z) pi)
-                                        -- Take modulus of x and y components
-                                        -- to keep them within the bounds of the
-                                        -- log image.
+            p6 = Complex                -- Clamp the output to repeat if a point
+                 (mod' (real p5) 1)     -- lies outside of the bounds of the
+                (mod' (imaginary p5) pi)-- bounds of the log space image
                                         -- 
-            l  = Complex.log p2         -- Natural log of p2 for building p3.
+            p5 = case m of              -- If some function on the point has 
+              (Just f) -> f p4          -- been passed to the function, then 
+              Nothing -> p4             -- apply it to the point.
                                         -- 
+            p4 = Complex (real p3)      -- 
+                 (pi - (abs             -- 
+                 (imaginary p3) ) )     -- Reverse the y axis.
+                                        -- 
+            p3 = (c (l-o) (1/s1)) +     -- Convert input point of generateImage
+                 (Complex 1 (-2*pi))    -- from Cartesian space to log.
+              where                     -- 
+                c z s2 = Complex        -- 
+                         (s2*(real z))  -- Scale the real component of some
+                         (imaginary z)  -- imaginary number by s2.
+                                        -- 
+            l  = Complex.log p2         -- 
+                                        -- Natural log of p2 for building p3.
             o  = Complex.log            -- 
                  (Complex 0.5 0)        -- Offset constant of x component of p3.
                                         -- 
             s1  = Prelude.log (1 / s)   -- Scale factor for x component of p3.
                                         -- 
             p2 = (abs p1)*( Complex.exp -- 
-                 (Complex 0 (0.5*a)) )  -- Intermediate point.
+                 (Complex 0 (0.5*a)) )  -- Intermediate point,
                                         -- 
-            a  = atan2 (yn-0.5) (xn-0.5)-- Get p1's angle from origin.
+            a  = atan2 (yn-0.5) (xn-0.5)-- Get p1's angle from the origin.
                                         -- 
             p1 = (Complex xn yn) -      -- 
-                 (Complex 0.5 0.5)      -- p1 is x,y centered around origin.
+                 (Complex 0.5 0.5)      -- p1 is x,y centered around the origin.
                                         -- 
             yn = (fromIntegral y) /     -- 
                  height                 -- Normalize y.
@@ -180,3 +187,40 @@ exp img s = generateImage imgNew
       width    = (inWidth*2)/(1-s)      -- 
       inHeight = (fromIntegral (imageHeight img) :: Float)
       inWidth  = (fromIntegral (imageWidth img) :: Float)
+
+-- !
+-- ! @brief      Rotate and scale a given input point around a pivot. To convert 
+-- !             the space to Escher space.
+-- !
+-- ! @return     The input point after a rotation and scale has been applied.
+-- !
+escherSpace :: (Complex w w) -> (Complex w w) -> (Complex w w)
+escherSpace input pivot = output
+  where
+    output = pc + ( (Complex s3 0) *    -- 
+             d1 * ( Complex.exp         -- Calculate the final point by rotating
+             (Complex 0 a2) ) )         -- and scaling around the pivot.
+                                        -- 
+    s3 = (real (abs (Complex 1 pi)))/pi -- Calculate the scaling factor to keep
+                                        -- the length to the adjacent point the
+                                        -- same after the rotation takes place.
+                                        -- 
+    a2 = a1 + ((pi/2) - ac)             -- Calculate the new angle to rotate the
+                                        -- space by.
+                                        -- 
+    a1  = if (l2 >= 0)                  -- 
+         then l2                        -- Offset the angle so that it is 
+         else l2 + (2 * pi)             -- between 0 and pi
+                                        -- 
+    l2  = imaginary ( Complex.log       -- Get the angle between the pivot and 
+          (input - pc) )                -- the input point.
+                                        -- 
+    d1  = abs (pc - input)              -- 
+    ac = atan2 pi 1.0                   -- Get the angle to the same point in an
+                                        -- adjacent repeated log-space image.
+                                        -- 
+    pc = Complex (real pivot)           -- Get normalize imaginary part of pivot
+         ( (imaginary pivot) * pi )     -- between 0 and pi
+
+escher :: (Complex w w) -> ((Complex w w) -> (Complex w w))
+escher pivot = \x -> escherSpace x pivot
