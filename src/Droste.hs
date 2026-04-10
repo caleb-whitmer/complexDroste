@@ -1,7 +1,7 @@
 module Droste 
   ( Droste.scale,
     Droste.overlay,
-    Droste.backRecurse,
+    Droste.forwardRecurse,
     Droste.pointExp,
     Droste.pointLog,
     Droste.drosteEscher,
@@ -13,26 +13,24 @@ import Data.Fixed
 import Complex
 
 -- !
--- ! @brief      Place the image in the center of an upscaled version of itself.
--- !             This prevents loss of quality when converting to and from 
--- !             logarithmic space.
+-- ! @brief      Place a downscaled version of the image in the center of the 
+-- !             image. This prevents loss of quality when converting to and
+-- !              from  logarithmic space.
 -- !
--- ! @return     An upscaled version of the image with a high-quality center.
+-- ! @return     An version of the image with a high-quality center.
 -- !
-backRecurse :: Image PixelRGB8 -> Float -> Image PixelRGB8
-backRecurse img s = overlay
-  scaledImg
+forwardRecurse :: Image PixelRGB8 -> Float -> Image PixelRGB8
+forwardRecurse img s = overlay
   img
-  (floor oX)
-  (floor oY)
+  scaledImg
+  (floor x')
+  (floor y')
     where
-      scaledImg = scale img (1/s)       -- Scale the outer image to fit around
-                                        -- the original.
-                                        -- 
-      oY = 0.5 * sHeight -              -- 
-           0.5 * height                 -- 
-      oX = 0.5 * sWidth -               -- Get offset to center the original 
-           0.5 * width                  -- image inside the outer image.
+      scaledImg = scale img s
+      y' = 0.5 * height -               -- 
+           0.5 * sHeight                -- 
+      x' = 0.5 * width -                -- Get offset to center the original 
+           0.5 * sWidth                 -- image inside the outer image.
       sHeight = fromIntegral (imageHeight scaledImg) :: Float
       sWidth  = fromIntegral (imageWidth scaledImg) :: Float
       height  = fromIntegral (imageHeight img) :: Float

@@ -9,11 +9,14 @@ import Droste
 
 main :: IO ()
 main = do
-    imRead <- readPng "canvas.png"
+    imRead <- readPng "pi.png"
     case imRead of
         Left err -> putStrLn err
         Right imSuc -> do
             let img = convertRGB8 imSuc
-            let imgOut = drosteEscher img ((631/2400), (1900/2400)) (1/16)
+            let img1 = scale img 4
+            let img2 = forwardRecurse img1 (1/16)
+            let imgOut = drosteEscher img2 ((631/2400), (1900/2400)) (1/16)
+            -- let imgOut = scale img1 (1/8)
             -- let imgOut = drosteEscher img ((998/1550), (322/1550)) (1/5)
-            writePng "canvasEscher.png" imgOut
+            writePng "piEscher.png" imgOut
