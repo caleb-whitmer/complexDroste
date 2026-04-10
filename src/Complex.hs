@@ -3,7 +3,9 @@ module Complex
     real,
     imaginary,
     Complex.exp,
-    Complex.log
+    Complex.log,
+    Complex.fromPoint,
+    Complex.fromComplex,
   ) where 
 
 data Complex r i = Complex Float Float
@@ -50,3 +52,9 @@ log :: (Complex w w) -> (Complex w w)   -- Natural Log of Complex Numbers:
 log (Complex r i) =                     -- ln(x +  yi) =
   Complex (Prelude.log m) (atan2 i r)   --  ln(sqrt(x**2 + y**2)) +
     where m = sqrt (r**2 + i**2)        --  atan2(y, x)i
+
+fromPoint :: Real r => (r, r) -> (Complex w w)
+fromPoint (a, b) = Complex (realToFrac a) (realToFrac b)
+
+fromComplex :: (Complex w w) -> (Float, Float)
+fromComplex (Complex a b) = (a, b)
