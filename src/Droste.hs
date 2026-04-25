@@ -6,6 +6,7 @@ module Droste
     Droste.pointExp,
     Droste.pointLog,
     Droste.apply,
+    Droste.applyN,
     Droste.zoom,
     Droste.rotate,
     Droste.escher,
@@ -153,35 +154,43 @@ pointLog (x, y) s = fromComplex p4
 -- ! @return     The image after the functions have been applied.
 -- !
 apply :: Image PixelRGB8 -> [DrosteTransform] -> Float -> Image PixelRGB8
-apply img funcs s = case funcs of
-  (f:fs) -> apply (apply' f img) fs s
-  []     -> img
+apply img funcs s = generateImage imgNew width height
   where
-    apply' f1 img1 = generateImage imgNew width height
+    imgNew x y = pixelAt img x' y'
       where
-        imgNew x y = pixelAt img1 x' y'
-          where
-            y' = mod (floor(v*h)) height-- De-normalize the point and clamp with
-            x' = mod (floor(u*w)) width -- repeating.
+        y' = mod (floor(v*h)) height    -- De-normalize the point and clamp with
+        x' = mod (floor(u*w)) width     -- repeating.
                                         -- 
-            (u, v)                      -- Convert the point back to Cartesian
-               = pointExp p2 s          -- space.
+        (u, v)                          -- Convert the point back to Cartesian
+           = pointExp p2 s              -- space.
                                         -- 
-            p2 = f1 p1 s                -- Apply the current function to the
-                                        -- point in logorithmic space.
+        p2 = apply' funcs p1            -- Apply each function to the point in 
+                                        -- logarithmic space.
                                         -- 
-            p1 = pointLog (xn, yn) s    -- Convert the point to Logarithmic 
+        p1 = pointLog (xn, yn) s        -- Convert the point to Logarithmic 
                                         -- space.
                                         -- 
-            yn = (fromIntegral y) / h   -- 
-            xn = (fromIntegral x) / w   -- Normalize the point between 0 and 1.
+        yn = (fromIntegral y) / h       -- 
+        xn = (fromIntegral x) / w       -- Normalize the point between 0 and 1.
                                         -- 
-            h  = ( fromIntegral height  -- 
-                   :: Float )           -- 
-            w  = ( fromIntegral width   -- 
-                   :: Float )           -- Get the dimensions as floats.
-        height = (imageHeight img1)     -- 
-        width  = (imageWidth img1)      -- 
+        h  = ( fromIntegral height ::   -- 
+               Float )                  -- 
+        w  = ( fromIntegral width ::    -- 
+               Float )                  -- Get the dimensions as floats.
+    height = (imageHeight img)          -- 
+    width  = (imageWidth img)           --
+    apply' fs p = case fs of            -- 
+      (g:gs) -> apply' gs (g p s)       -- Apply function to apply each function
+      []     -> p                       -- in the list to the given input point.
+
+applyN :: Image PixelRGB8 -> [DrosteTransform] -> Float -> Integer -> [Image PixelRGB8]
+applyN img funcs s n = applyN' img funcs s n
+  where
+    applyN' _ funcs' _ n' = 
+      if (n' <= 0)
+      then []
+      else [(apply img funcs' s)] ++
+           applyN' img (funcs' ++ funcs) s (n'-1)
 
 -- !
 -- ! @brief      Rotate and scale a given input point around a pivot. To convert 
