@@ -14,6 +14,7 @@ module Droste
 
 import Codec.Picture
 import Data.Fixed
+import Data.Map
 
 import Complex
 
@@ -183,14 +184,82 @@ apply img funcs s = generateImage imgNew width height
       (g:gs) -> apply' gs (g p s)       -- Apply function to apply each function
       []     -> p                       -- in the list to the given input point.
 
-applyN :: Image PixelRGB8 -> [DrosteTransform] -> Float -> Integer -> [Image PixelRGB8]
-applyN img funcs s n = applyN' img funcs s n
+-- !
+-- ! @brief      Gets a map of Cartesian space points to their logarithmic space
+-- !             counter parts.
+-- !
+-- ! @return     The map of logarithmic points.
+-- !
+getLogMap :: Int -> Int -> Float -> Map (Int, Int) (Float, Float)
+getLogMap w h s = fromList (getList 0 0)-- Generate the map from the list.
   where
-    applyN' _ funcs' _ n' = 
-      if (n' <= 0)
-      then []
-      else [(apply img funcs' s)] ++
-           applyN' img (funcs' ++ funcs) s (n'-1)
+    getList x y = 
+      if (x >= w && y >= h - 1)         -- If we have reached past the last 
+      then []                           -- pixel then return the base case                                         
+                                        -- (empty list).
+      else if (x >= w)                  -- Otherwise if we reached end of row.
+           then (getList 0 (y + 1))     -- Then move to next row and restart.
+           else [((x, y),               -- 
+                 pointLog (xn,yn) s)]++ -- Otherwise insert the current point 
+                (getList (x + 1) y)     -- with its logarithm into the list.
+        where                           -- 
+          yn = (fromIntegral y) /       -- 
+               (fromIntegral h)         -- 
+          xn = (fromIntegral x) /       -- 
+               (fromIntegral w)         -- Normalize x and y.
+
+-- !
+-- ! @brief      Apply a series of transforms to the logarithmic space of an 
+-- !             image N times.
+-- !
+-- ! @return     A list of frames, in order by generation of applied transforms. 
+-- !
+applyN :: Image PixelRGB8 -> [DrosteTransform] -> Float -> Integer -> [Image PixelRGB8]
+applyN img funcs s n = applyN' coordMap n
+  where
+    applyN' c n' =                      -- 
+      if (n' <= 0)                      -- 
+      then []                           -- 
+      else [generateImage newImg w h]++ -- Generate each frame by apply all 
+          (applyN' (app funcs c) (n'-1))-- transforms to the points from the 
+                                        -- previous frame.
+        where                           -- 
+          newImg x y = pixelAt img x' y'-- Generate new image pixel-by-pixel.
+            where                       -- 
+              y' = mod                  -- 
+                   ( floor (            -- 
+                     v*(fromIntegral h) -- 
+                   ) )                  -- 
+                   h                    -- 
+              x' = mod                  -- 
+                   ( floor (            -- 
+                     u*(fromIntegral w) -- 
+                   ) )                  --
+                   w                    --  Denormalize the output points.
+                                        -- 
+              (u, v) = pointExp p2 s    -- Take the exponential function of the 
+                                        -- output of the logarithmic map lookup.
+                                        -- 
+              p2 = case p1 of           -- 
+                Just p -> p             -- 
+                _      -> (0, 0)        -- Look up the point in the logarithmic
+              p1 = Data.Map.lookup      -- space map, returning (0, 0) if it is
+                   (x, y) c             -- not found.
+                                        -- 
+          app fs' c' = case fs' of      -- 
+            (f:fs) -> app               -- 
+                      fs                -- 
+                      (  Data.Map.map   -- 
+                         (\l -> f l s)  -- 
+                         c'  )          -- 
+                                        -- Apply a set of functions across the
+            []     -> c'                -- logarithmic space map.
+                                        -- 
+    coordMap = getLogMap w h s          -- Get a map of all Cartesian space 
+                                        -- points to their logarithmic space
+                                        -- counter-parts.
+    h = imageHeight img                 -- 
+    w = imageWidth img                  -- Get dimensions of image.
 
 -- !
 -- ! @brief      Rotate and scale a given input point around a pivot. To convert 
