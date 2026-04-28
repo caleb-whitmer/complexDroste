@@ -1,15 +1,14 @@
 module Droste 
   ( Droste.DrosteTransform,
-    Droste.scale,
-    Droste.overlay,
-    Droste.forwardRecurse,
-    Droste.pointExp,
-    Droste.pointLog,
+    Droste.imageScale,
+    Droste.imageOverlay,
+    Droste.imageForwardRecurse,
     Droste.apply,
     Droste.applyN,
     Droste.zoom,
     Droste.rotate,
     Droste.escher,
+    Droste.scale,
   ) where
 
 import Codec.Picture
@@ -31,14 +30,14 @@ type DrosteTransform = (Float, Float) -> Float -> (Float, Float)
 -- !
 -- ! @return     An version of the image with a high-quality center.
 -- !
-forwardRecurse :: Image PixelRGB8 -> Float -> Image PixelRGB8
-forwardRecurse img s = overlay
+imageForwardRecurse :: Image PixelRGB8 -> Float -> Image PixelRGB8
+imageForwardRecurse img s = imageOverlay
   img
   scaledImg
   (floor x')
   (floor y')
     where
-      scaledImg = scale img s
+      scaledImg = imageScale img s
       y' = 0.5 * height -               -- 
            0.5 * sHeight                -- 
       x' = 0.5 * width -                -- Get offset to center the original 
@@ -54,8 +53,8 @@ forwardRecurse img s = overlay
 -- ! @return     A combination of the two image, with the second overlayed on 
 -- !             top of the first.
 -- !
-overlay :: Image PixelRGB8 -> Image PixelRGB8 -> Int -> Int -> Image PixelRGB8
-overlay bImg tImg oX oY = generateImage imgNew
+imageOverlay :: Image PixelRGB8 -> Image PixelRGB8 -> Int -> Int -> Image PixelRGB8
+imageOverlay bImg tImg oX oY = generateImage imgNew
   (imageWidth bImg)
   (imageHeight bImg)
     where
@@ -78,8 +77,8 @@ overlay bImg tImg oX oY = generateImage imgNew
 -- !
 -- ! @return     The scaled image.
 -- !
-scale :: Image PixelRGB8 -> Float -> Image PixelRGB8
-scale img s = generateImage imgNew
+imageScale :: Image PixelRGB8 -> Float -> Image PixelRGB8
+imageScale img s = generateImage imgNew
   (floor width)
   (floor height)
     where 
@@ -97,7 +96,7 @@ scale img s = generateImage imgNew
 -- !
 -- ! @return     The converted point
 -- !
-pointExp :: (Float, Float) -> Float -> (Float, Float)
+pointExp :: DrosteTransform
 pointExp (x, y) s = fromComplex p3
   where
     p3 = Complex                        -- 
@@ -121,7 +120,7 @@ pointExp (x, y) s = fromComplex p3
 -- !
 -- ! @return     The converted point.
 -- !
-pointLog :: (Float, Float) -> Float -> (Float, Float)
+pointLog :: DrosteTransform
 pointLog (x, y) s = fromComplex p4
   where
     p4 = Complex (real p3)              -- 
@@ -146,6 +145,46 @@ pointLog (x, y) s = fromComplex p4
                                         -- 
     p1 = (Complex x y)-(Complex 0.5 0.5)-- p1 is x,y centered around the origin.
 
+
+-- !
+-- ! @brief      Rotate and scale a given input point around a pivot. To convert 
+-- !             the space to Escher space.
+-- !
+-- ! @return     The input point after a rotation and scale has been applied.
+-- !
+pointEscher :: (Float, Float) -> (Float, Float) -> (Float, Float)
+pointEscher point pivot = output
+  where
+    output = ( mod' (real p1) 1,        -- 
+               mod' (imaginary p1) pi ) -- Clamp the output to repeat.
+                                        -- 
+    p1 = pc + ( (Complex s3 0) *        -- 
+         d1 * ( Complex.exp             -- Calculate the final point by rotating
+         (Complex 0 a2) ) )             -- and scaling around the pivot.
+                                        -- 
+    s3 = (real (abs (Complex 1 pi)))/pi -- Calculate the scaling factor to keep
+                                        -- the length to the adjacent point the
+                                        -- same after the rotation takes place.
+                                        -- 
+    a2 = a1 + ((pi/2) - ac)             -- Calculate the new angle to rotate the
+                                        -- space by.
+                                        -- 
+    a1  = if (l2 >= 0)                  -- 
+         then l2                        -- Offset the angle so that it is 
+         else l2 + (2 * pi)             -- between 0 and pi
+                                        -- 
+    l2  = imaginary ( Complex.log       -- Get the angle between the pivot and 
+          (input - pc) )                -- the input point.
+                                        -- 
+    d1  = abs (pc - input)              -- 
+    ac = atan2 pi 1.0                   -- Get the angle to the same point in an
+                                        -- adjacent repeated log-space image.
+                                        -- 
+    pc = fromPoint pivot                -- Get normalize imaginary part of pivot.
+                                        -- between 0 and pi.
+                                        -- 
+    input = fromPoint point             -- Get the input point as a complex
+                                        -- number.
 
 -- !
 -- ! @brief      Applies a list of functions to the image after it has been 
@@ -262,46 +301,6 @@ applyN img funcs s n = applyN' coordMap n
     w = imageWidth img                  -- Get dimensions of image.
 
 -- !
--- ! @brief      Rotate and scale a given input point around a pivot. To convert 
--- !             the space to Escher space.
--- !
--- ! @return     The input point after a rotation and scale has been applied.
--- !
-pointEscher :: (Float, Float) -> (Float, Float) -> (Float, Float)
-pointEscher point pivot = output
-  where
-    output = ( mod' (real p1) 1,        -- 
-               mod' (imaginary p1) pi ) -- Clamp the output to repeat.
-                                        -- 
-    p1 = pc + ( (Complex s3 0) *        -- 
-         d1 * ( Complex.exp             -- Calculate the final point by rotating
-         (Complex 0 a2) ) )             -- and scaling around the pivot.
-                                        -- 
-    s3 = (real (abs (Complex 1 pi)))/pi -- Calculate the scaling factor to keep
-                                        -- the length to the adjacent point the
-                                        -- same after the rotation takes place.
-                                        -- 
-    a2 = a1 + ((pi/2) - ac)             -- Calculate the new angle to rotate the
-                                        -- space by.
-                                        -- 
-    a1  = if (l2 >= 0)                  -- 
-         then l2                        -- Offset the angle so that it is 
-         else l2 + (2 * pi)             -- between 0 and pi
-                                        -- 
-    l2  = imaginary ( Complex.log       -- Get the angle between the pivot and 
-          (input - pc) )                -- the input point.
-                                        -- 
-    d1  = abs (pc - input)              -- 
-    ac = atan2 pi 1.0                   -- Get the angle to the same point in an
-                                        -- adjacent repeated log-space image.
-                                        -- 
-    pc = fromPoint pivot                -- Get normalize imaginary part of pivot.
-                                        -- between 0 and pi.
-                                        -- 
-    input = fromPoint point             -- Get the input point as a complex
-                                        -- number.
-
--- !
 -- ! @brief      'Zoom' a Droste image by moving the point along the x-axis in 
 -- !             Logarithmic space.
 -- !
@@ -333,6 +332,19 @@ rotate ang (x, y) _ = (x, y')
                                         -- clamped to pi rather than 2*pi. Then 
                                         -- use it to offset the y-axis and 
                                         -- clamp.
+
+-- !
+-- ! @brief      Scale the x and y axes of the logarithmic space by the 
+-- !             components of a given vector.
+-- !
+-- ! @return     A Droste transform which scales the input point both 
+-- !             horizontally and vertically around the center.
+-- !
+scale :: (Float, Float) -> DrosteTransform
+scale (fx, fy) (x, y) _ = (x', y')
+  where
+    y' = mod' (y * fy) pi               -- Scale each axis of the logarithmic
+    x' = mod' (x * fx) 1                -- space by the components of the input.
 
 -- !
 -- ! @brief      Take a target pivot point as an input and return a 

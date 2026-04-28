@@ -10,16 +10,16 @@ import Droste
 
 -- https://hackage.haskell.org/package/JuicyPixels-3.3.9/docs/Codec-Picture-Types.html
 
-red (PixelRGB8 r _ _) = r
 
-imgRed img = generateImage imgNew (imageWidth img) (imageHeight img)
-    where
-        imgNew x y = red (pixelAt img x y)
-
-gifZip :: [Image PixelRGB8] -> Palette -> GifDelay -> [(Palette, GifDelay, Image Pixel8)]
-gifZip imgs p d = case imgs of
-    (i:is) -> [(p, d, imgRed i)] ++ (gifZip is p d)
+gifZip :: [Image PixelRGB8] -> GifDelay -> [(Palette, GifDelay, Image Pixel8)]
+gifZip imgs d = case imgs of
+    (i:is) -> [(p, d, gi)] ++ (gifZip is d)
+        where
+            (gi, p) = palettize opt i
     []     -> []
+    where
+        opt = PaletteOptions (MedianMeanCut) True 256
+
 
 
 main :: IO ()
@@ -29,13 +29,12 @@ main = do
         Left err -> putStrLn err
         Right imSuc -> do
             let img = convertRGB8 imSuc
-
-
-            -- let imgs = applyN img [(zoom 0.05), (rotate (pi/10))] (1/16) 20
+            -- let imgOut = apply img [scale 0.5] (1/16) 
+            -- writePng "piOut.png" imgOut
             
 
-            let imgs = applyN img [(zoom 0.05)] (1/16) 20
-            let frames = gifZip imgs greyPalette 10
+            let imgs = applyN img [(scale (0.95, 1))] (1/16) 20
+            let frames = gifZip imgs 10
 
             let gifOut = writeGifImages "piZoom.gif" LoopingForever frames
             case gifOut of
