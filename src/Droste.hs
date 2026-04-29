@@ -253,8 +253,8 @@ getLogMap w h s = fromList (getList 0 0)-- Generate the map from the list.
 -- !
 -- ! @return     A list of frames, in order by generation of applied transforms. 
 -- !
-applyN :: Image PixelRGB8 -> [DrosteTransform] -> Float -> Integer -> [Image PixelRGB8]
-applyN img funcs s n = applyN' coordMap n
+applyN :: Image PixelRGB8 -> [DrosteTransform] -> [DrosteTransform] -> Float -> Integer -> [Image PixelRGB8]
+applyN img initf funcs s n = applyN' (app initf coordMap) n
   where
     applyN' c n' =                      -- 
       if (n' <= 0)                      -- 
@@ -285,14 +285,14 @@ applyN img funcs s n = applyN' coordMap n
               p1 = Data.Map.lookup      -- space map, returning (0, 0) if it is
                    (x, y) c             -- not found.
                                         -- 
-          app fs' c' = case fs' of      -- 
-            (f:fs) -> app               -- 
-                      fs                -- 
-                      (  Data.Map.map   -- 
-                         (\l -> f l s)  -- 
-                         c'  )          -- 
+    app fs' c' = case fs' of            -- 
+      (f:fs) -> app                     -- 
+                fs                      -- 
+                (  Data.Map.map         -- 
+                   (\l -> f l s)        -- 
+                   c'  )                -- 
                                         -- Apply a set of functions across the
-            []     -> c'                -- logarithmic space map.
+      []     -> c'                      -- logarithmic space map.
                                         -- 
     coordMap = getLogMap w h s          -- Get a map of all Cartesian space 
                                         -- points to their logarithmic space
